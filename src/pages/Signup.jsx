@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Helmet } from 'react-helmet-async';
 import { toast } from 'sonner';
+
 export default function Signup() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -35,15 +36,9 @@ export default function Signup() {
 
         setLoading(true);
         try {
-            const { user } = await signup(name.trim(), email.trim(), password);
-            toast.success("A verification code has been sent to your email.");
-            navigate('/verify-otp', {
-                state: {
-                    uid: user.uid,
-                    email: user.email,
-                    name: name.trim()
-                }
-            });
+            await signup(name.trim(), email.trim(), password);
+            toast.success("Account created successfully!");
+            navigate('/');
         } catch (error) {
             console.error(error);
             let msg = "Failed to create account.";
@@ -111,30 +106,20 @@ export default function Signup() {
                         />
                     </div>
 
-                    <p className="text-xs text-center text-primary/60 mt-2">
-                        A 4-digit verification code will be sent to your email address.
-                    </p>
-
                     <Button
                         type="submit"
                         className="w-full bg-primary text-secondary hover:bg-accent py-3 rounded-none font-bold text-sm mt-4"
                         isLoading={loading}
                     >
-                        Sign Up & Continue with Email OTP
+                        Sign Up
                     </Button>
                 </form>
 
-                <div className="mt-8 text-center border-t border-primary/5 pt-6 space-y-2">
+                <div className="mt-8 text-center border-t border-primary/5 pt-6">
                     <p className="text-sm text-primary/60">
                         Already have an account?{' '}
                         <Link to="/login" className="text-primary font-bold hover:underline">
                             Login
-                        </Link>
-                    </p>
-                    <p className="text-xs text-primary/60">
-                        Already signed up?{' '}
-                        <Link to="/verify-otp" className="text-primary font-bold hover:underline">
-                            Continue with Email Verification
                         </Link>
                     </p>
                 </div>

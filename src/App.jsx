@@ -18,7 +18,6 @@ import ContactUs from './pages/ContactUs';
 import ShippingReturns from './pages/ShippingReturns';
 import AccountSettings from './pages/AccountSettings';
 import Wishlist from './pages/Wishlist';
-import VerifyOtp from './pages/VerifyOtp';
 
 function App() {
   return (
@@ -35,7 +34,6 @@ function App() {
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            <Route path="/verify-otp" element={<VerifyOtp />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/orders" element={<UserOrders />} />
             <Route path="/support" element={<Support />} />

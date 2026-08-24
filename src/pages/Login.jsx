@@ -9,15 +9,13 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const [unverifiedUser, setUnverifiedUser] = useState(null);
     const [isResetMode, setIsResetMode] = useState(false);
-    const { login, resetPassword, sendOtp } = useAuth();
+    const { login, resetPassword } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setUnverifiedUser(null);
 
         if (isResetMode) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -44,19 +42,7 @@ export default function Login() {
         }
 
         try {
-            const { userCredential, isVerified } = await login(email.trim(), password);
-
-            if (!isVerified) {
-                setUnverifiedUser({
-                    uid: userCredential.user.uid,
-                    email: userCredential.user.email,
-                    name: userCredential.user.displayName || 'Customer'
-                });
-                toast.error("Please verify your email before logging in.");
-                setLoading(false);
-                return;
-            }
-
+            await login(email.trim(), password);
             toast.success("Login successful");
             navigate('/');
         } catch (error) {
@@ -72,17 +58,6 @@ export default function Login() {
         }
     };
 
-    const handleResendForUnverified = async () => {
-        if (!unverifiedUser) return;
-        try {
-            await sendOtp(unverifiedUser.uid, unverifiedUser.email, unverifiedUser.name);
-            toast.success("A verification code has been sent to your email.");
-            navigate('/verify-otp', { state: unverifiedUser });
-        } catch (err) {
-            toast.error(err.message || "Failed to send OTP.");
-        }
-    };
-
     return (
         <div className="min-h-screen bg-secondary flex items-center justify-center px-4">
             <Helmet>
@@ -93,30 +68,6 @@ export default function Login() {
                 <h2 className="text-2xl font-bold mb-6 text-center text-primary">
                     {isResetMode ? 'Reset Password' : 'Login'}
                 </h2>
-
-                {unverifiedUser && (
-                    <div className="mb-6 p-4 border border-amber-300 bg-amber-50 rounded-2xl text-center">
-                        <p className="text-sm font-semibold text-amber-900 mb-3">
-                            Please verify your email before logging in.
-                        </p>
-                        <div className="flex justify-center gap-3">
-                            <button
-                                type="button"
-                                onClick={() => navigate('/verify-otp', { state: unverifiedUser })}
-                                className="px-4 py-2 bg-primary text-secondary text-xs font-bold rounded-lg hover:bg-accent transition-colors"
-                            >
-                                Verify Email
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleResendForUnverified}
-                                className="px-4 py-2 border border-primary/20 text-primary text-xs font-bold rounded-lg hover:bg-secondary/60 transition-colors"
-                            >
-                                Resend OTP
-                            </button>
-                        </div>
-                    </div>
-                )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
