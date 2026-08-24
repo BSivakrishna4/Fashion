@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -23,28 +23,6 @@ const OTP_SECRET = process.env.OTP_SECRET || 'nfashions_otp_secure_secret_2026';
 // Mapped as: uid -> { hash, expiresAt, attempts, lastSentAt, email, name, isVerified }
 const otpStore = new Map();
 const verifiedUsers = new Set();
-
-// Configure Nodemailer transporter if credentials provided
-const createTransporter = () => {
-    const host = process.env.SMTP_HOST;
-    const port = process.env.SMTP_PORT || 587;
-    const user = process.env.SMTP_USER;
-    const rawPass = process.env.SMTP_PASS || '';
-    const pass = rawPass.replace(/\s+/g, '');
-
-    if (host && user && pass) {
-        return nodemailer.createTransport({
-            host: host,
-            port: Number(port),
-            secure: Number(port) === 465,
-            auth: { user, pass },
-            tls: {
-                rejectUnauthorized: false
-            }
-        });
-    }
-    return null;
-};
 
 // Helper: Hash OTP using SHA-256 with OTP_SECRET
 function hashOtp(otp, uid) {
@@ -101,36 +79,42 @@ app.post('/api/send-otp', async (req, res) => {
         const emailSubject = 'N-FASHIONS Email Verification';
         const emailMessage = `Hello ${name || 'Customer'},\n\nYour N-FASHIONS verification code is:\n\n${otp}\n\nThis code will expire in 5 minutes.\n\nIf you did not create this account, please ignore this email.`;
 
-        const transporter = createTransporter();
-        const fromAddress = process.env.SMTP_FROM || `"N-FASHIONS" <noreply@nfashions.com>`;
+        const resendApiKey = process.env.RESEND_API_KEY;
+        if (!resendApiKey) {
+            console.error('[RESEND CONFIG ERROR] RESEND_API_KEY environment variable is missing.');
+            return res.status(500).json({ error: 'Unable to send verification email. Please try again.' });
+        }
 
-        if (transporter) {
-            try {
-                await transporter.sendMail({
-                    from: fromAddress,
-                    to: normalizedEmail,
-                    subject: emailSubject,
-                    text: emailMessage,
-                    html: `
-                        <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 500px; border: 1px solid #eee; border-radius: 8px;">
-                            <h2 style="color: #000; margin-bottom: 16px;">N-FASHIONS</h2>
-                            <p style="font-size: 15px;">Hello ${name || 'Customer'},</p>
-                            <p style="font-size: 15px;">Your N-FASHIONS verification code is:</p>
-                            <div style="background-color: #f4f4f4; padding: 16px; text-align: center; border-radius: 8px; font-size: 28px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #000;">
-                                ${otp}
-                            </div>
-                            <p style="font-size: 14px; color: #555;">This code will expire in 5 minutes.</p>
-                            <p style="font-size: 13px; color: #888; margin-top: 24px;">If you did not create this account, please ignore this email.</p>
+        const resend = new Resend(resendApiKey);
+        const fromAddress = process.env.RESEND_FROM || '"N-FASHIONS" <onboarding@resend.dev>';
+
+        try {
+            const { data, error: sendError } = await resend.emails.send({
+                from: fromAddress,
+                to: normalizedEmail,
+                subject: emailSubject,
+                text: emailMessage,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; max-width: 500px; border: 1px solid #eee; border-radius: 8px;">
+                        <h2 style="color: #000; margin-bottom: 16px;">N-FASHIONS</h2>
+                        <p style="font-size: 15px;">Hello ${name || 'Customer'},</p>
+                        <p style="font-size: 15px;">Your N-FASHIONS verification code is:</p>
+                        <div style="background-color: #f4f4f4; padding: 16px; text-align: center; border-radius: 8px; font-size: 28px; font-weight: bold; letter-spacing: 8px; margin: 20px 0; color: #000;">
+                            ${otp}
                         </div>
-                    `
-                });
-                console.log(`[OTP SENT VIA EMAIL] To: ${normalizedEmail}`);
-            } catch (mailErr) {
-                console.error(`[SMTP ERROR] Could not deliver email to ${normalizedEmail}:`, mailErr.message);
+                        <p style="font-size: 14px; color: #555;">This code will expire in 5 minutes.</p>
+                        <p style="font-size: 13px; color: #888; margin-top: 24px;">If you did not create this account, please ignore this email.</p>
+                    </div>
+                `
+            });
+
+            if (sendError) {
+                console.error(`[RESEND ERROR] Could not deliver email to ${normalizedEmail}:`, sendError.message || sendError);
                 return res.status(500).json({ error: 'Unable to send verification email. Please try again.' });
             }
-        } else {
-            console.error(`[SMTP CONFIG ERROR] No SMTP transporter configured.`);
+            console.log(`[OTP SENT VIA RESEND] To: ${normalizedEmail}, ID: ${data?.id}`);
+        } catch (mailErr) {
+            console.error(`[RESEND ERROR] Failed to send email to ${normalizedEmail}:`, mailErr.message);
             return res.status(500).json({ error: 'Unable to send verification email. Please try again.' });
         }
 
