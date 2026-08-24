@@ -1,0 +1,84 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ─────────────────────────────────────────────────────
+
+    // Is the request coming from a signed-in user?
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Fetch the caller's role from the users collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Is the caller an admin?
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    // Is the caller the owner of this document?
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // ── products ─────────────────────────────────────────────────────────────
+    // Anyone can read products (public shop).
+    // Only admins can create / update / delete products.
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── orders ───────────────────────────────────────────────────────────────
+    // Authenticated users can create their own orders.
+    // Users can read their own orders (matched by userId field).
+    // Admins can read and update all orders.
+    match /orders/{orderId} {
+      allow create: if isAuthenticated();
+      allow read:   if isAuthenticated() && (
+                      resource.data.userId == request.auth.uid ||
+                      (request.auth.token.email != null && resource.data.userEmail == request.auth.token.email) ||
+                      isAdmin()
+                    );
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── users ─────────────────────────────────────────────────────────────
+    // A user can read and update their own profile.
+    // Admins can read all user profiles.
+    // Creation is allowed during signup (user writes their own doc).
+    match /users/{userId} {
+      allow create: if isOwner(userId);
+      allow read:   if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── messages (contact form) ───────────────────────────────────────────────
+    // Anyone (even unauthenticated visitors) can submit a message.
+    // Only admins can read and delete messages.
+    match /messages/{messageId} {
+      allow create: if true;
+      allow read:   if isAdmin();
+      allow delete: if isAdmin();
+      allow update: if isAdmin();
+    }
+
+    // ── settings ─────────────────────────────────────────────────────────────
+    // Anyone can read app settings (contact details, address). Only admins can write.
+    match /settings/{settingId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // ── carts ────────────────────────────────────────────────────────────────
+    // Authenticated users can read and write their own cart document.
+    match /carts/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+  }
+}
