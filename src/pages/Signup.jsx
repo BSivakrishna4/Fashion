@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Helmet } from 'react-helmet-async';
 import { toast } from 'sonner';
+import { Mail } from 'lucide-react';
 
 export default function Signup() {
     const [name, setName] = useState('');
@@ -11,6 +12,7 @@ export default function Signup() {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [verificationSent, setVerificationSent] = useState(false);
     const { signup } = useAuth();
     const navigate = useNavigate();
 
@@ -37,8 +39,8 @@ export default function Signup() {
         setLoading(true);
         try {
             await signup(name.trim(), email.trim(), password);
-            toast.success("Account created successfully!");
-            navigate('/');
+            setVerificationSent(true);
+            toast.success("Account created successfully. Please check your email and verify your email address before logging in.");
         } catch (error) {
             console.error(error);
             let msg = "Failed to create account.";
@@ -57,73 +59,91 @@ export default function Signup() {
                 <title>Sign Up | N-FASHIONS</title>
             </Helmet>
 
-            <div className="bg-white p-12 md:p-16 border border-primary/10 w-full max-w-xl shadow-xl rounded-3xl">
-                <h2 className="text-2xl font-bold mb-6 text-center text-primary">Sign Up</h2>
-
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                        <label className="block text-sm font-medium text-primary mb-1">Full Name</label>
-                        <input
-                            type="text"
-                            required
-                            placeholder="John Doe"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="w-full px-4 py-3 border border-primary/10 bg-secondary/20 focus:bg-white focus:border-primary transition-all outline-none text-sm font-medium"
-                        />
+            {verificationSent ? (
+                <div className="bg-white p-12 md:p-16 border border-primary/10 w-full max-w-xl shadow-xl rounded-3xl text-center">
+                    <div className="w-16 h-16 bg-primary/5 rounded-full flex items-center justify-center mx-auto mb-6 text-primary">
+                        <Mail className="w-8 h-8" />
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-primary mb-1">Email Address</label>
-                        <input
-                            type="email"
-                            required
-                            placeholder="email@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full px-4 py-3 border border-primary/10 bg-secondary/20 focus:bg-white focus:border-primary transition-all outline-none text-sm font-medium"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-primary mb-1">Password</label>
-                        <input
-                            type="password"
-                            required
-                            placeholder="Password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full px-4 py-3 border border-primary/10 bg-secondary/20 focus:bg-white focus:border-primary transition-all outline-none text-sm font-medium"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-primary mb-1">Confirm Password</label>
-                        <input
-                            type="password"
-                            required
-                            placeholder="Confirm Password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            className="w-full px-4 py-3 border border-primary/10 bg-secondary/20 focus:bg-white focus:border-primary transition-all outline-none text-sm font-medium"
-                        />
-                    </div>
-
-                    <Button
-                        type="submit"
-                        className="w-full bg-primary text-secondary hover:bg-accent py-3 rounded-none font-bold text-sm mt-4"
-                        isLoading={loading}
-                    >
-                        Sign Up
-                    </Button>
-                </form>
-
-                <div className="mt-8 text-center border-t border-primary/5 pt-6">
-                    <p className="text-sm text-primary/60">
-                        Already have an account?{' '}
-                        <Link to="/login" className="text-primary font-bold hover:underline">
-                            Login
-                        </Link>
+                    <h2 className="text-2xl font-bold mb-4 text-primary">Verify Your Email</h2>
+                    <p className="text-sm text-primary/70 leading-relaxed mb-8">
+                        Account created successfully. Please check your email and verify your email address before logging in.
                     </p>
+                    <Button
+                        onClick={() => navigate('/login')}
+                        className="w-full bg-primary text-secondary hover:bg-accent py-3 rounded-none font-bold text-sm"
+                    >
+                        Go to Login
+                    </Button>
                 </div>
-            </div>
+            ) : (
+                <div className="bg-white p-12 md:p-16 border border-primary/10 w-full max-w-xl shadow-xl rounded-3xl">
+                    <h2 className="text-2xl font-bold mb-6 text-center text-primary">Sign Up</h2>
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-medium text-primary mb-1">Full Name</label>
+                            <input
+                                type="text"
+                                required
+                                placeholder="John Doe"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="w-full px-4 py-3 border border-primary/10 bg-secondary/20 focus:bg-white focus:border-primary transition-all outline-none text-sm font-medium"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-primary mb-1">Email Address</label>
+                            <input
+                                type="email"
+                                required
+                                placeholder="email@example.com"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full px-4 py-3 border border-primary/10 bg-secondary/20 focus:bg-white focus:border-primary transition-all outline-none text-sm font-medium"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-primary mb-1">Password</label>
+                            <input
+                                type="password"
+                                required
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full px-4 py-3 border border-primary/10 bg-secondary/20 focus:bg-white focus:border-primary transition-all outline-none text-sm font-medium"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-primary mb-1">Confirm Password</label>
+                            <input
+                                type="password"
+                                required
+                                placeholder="Confirm Password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="w-full px-4 py-3 border border-primary/10 bg-secondary/20 focus:bg-white focus:border-primary transition-all outline-none text-sm font-medium"
+                            />
+                        </div>
+
+                        <Button
+                            type="submit"
+                            className="w-full bg-primary text-secondary hover:bg-accent py-3 rounded-none font-bold text-sm mt-4"
+                            isLoading={loading}
+                        >
+                            Sign Up
+                        </Button>
+                    </form>
+
+                    <div className="mt-8 text-center border-t border-primary/5 pt-6">
+                        <p className="text-sm text-primary/60">
+                            Already have an account?{' '}
+                            <Link to="/login" className="text-primary font-bold hover:underline">
+                                Login
+                            </Link>
+                        </p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

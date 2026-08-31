@@ -7,6 +7,7 @@ import {
     onAuthStateChanged,
     updatePassword,
     sendPasswordResetEmail,
+    sendEmailVerification,
     updateProfile
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -30,6 +31,9 @@ export function AuthProvider({ children }) {
         // Update auth profile display name
         await updateProfile(user, { displayName: name });
 
+        // Send Firebase verification email
+        await sendEmailVerification(user);
+
         const isDefaultAdmin = email.toLowerCase() === 'sivabulle4@gmail.com' || email.toLowerCase() === 'admin@nfashions.com';
 
         const newUserData = {
@@ -47,13 +51,35 @@ export function AuthProvider({ children }) {
             console.error('Failed to create user document:', error);
         }
 
-        setUserData(newUserData);
-        return { userCredential, user };
+        // Sign out newly created user so they cannot access authenticated routes until verified
+        await signOut(auth);
+
+        return { userCredential, user, emailVerified: false };
     }
 
     async function login(email, password) {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        return { userCredential };
+        const user = userCredential.user;
+
+        // Reload user status from Firebase Auth
+        await user.reload();
+
+        if (!user.emailVerified) {
+            // Sign out unverified user session
+            await signOut(auth);
+            return { userCredential, user, emailVerified: false };
+        }
+
+        return { userCredential, user, emailVerified: true };
+    }
+
+    async function resendVerificationEmail(userObj) {
+        const targetUser = userObj || auth.currentUser;
+        if (!targetUser) {
+            throw new Error("No user session found. Please enter your email and password to log in again.");
+        }
+        await sendEmailVerification(targetUser);
+        return true;
     }
 
     async function changePassword(currentPassword, newPassword) {
@@ -74,6 +100,20 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
+                try {
+                    await user.reload();
+                } catch (e) {
+                    console.warn("Could not reload user status:", e);
+                }
+
+                if (!user.emailVerified) {
+                    setCurrentUser(null);
+                    setUserData(null);
+                    await signOut(auth);
+                    setLoading(false);
+                    return;
+                }
+
                 setCurrentUser(user);
                 try {
                     const docRef = doc(db, 'users', user.uid);
@@ -105,11 +145,13 @@ export function AuthProvider({ children }) {
     const value = {
         currentUser,
         userData,
+        loading,
         signup,
         login,
         logout,
         changePassword,
-        resetPassword
+        resetPassword,
+        resendVerificationEmail
     };
 
     return (

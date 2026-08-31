@@ -10,12 +10,16 @@ export default function Login() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [isResetMode, setIsResetMode] = useState(false);
-    const { login, resetPassword } = useAuth();
+    const [isUnverified, setIsUnverified] = useState(false);
+    const [unverifiedUser, setUnverifiedUser] = useState(null);
+    const [resendLoading, setResendLoading] = useState(false);
+    const { login, resetPassword, resendVerificationEmail } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
+        setIsUnverified(false);
 
         if (isResetMode) {
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -42,7 +46,13 @@ export default function Login() {
         }
 
         try {
-            await login(email.trim(), password);
+            const res = await login(email.trim(), password);
+            if (res && res.emailVerified === false) {
+                setIsUnverified(true);
+                setUnverifiedUser(res.user);
+                toast.error("Please verify your email address before logging in.");
+                return;
+            }
             toast.success("Login successful");
             navigate('/');
         } catch (error) {
@@ -58,6 +68,23 @@ export default function Login() {
         }
     };
 
+    const handleResendVerification = async () => {
+        setResendLoading(true);
+        try {
+            await resendVerificationEmail(unverifiedUser);
+            toast.success("Verification email resent! Please check your inbox.");
+        } catch (error) {
+            console.error(error);
+            let msg = "Failed to resend verification email.";
+            if (error.code === 'auth/too-many-requests') {
+                msg = "Too many requests. Please wait a few moments before trying again.";
+            }
+            toast.error(msg);
+        } finally {
+            setResendLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-secondary flex items-center justify-center px-4">
             <Helmet>
@@ -68,6 +95,32 @@ export default function Login() {
                 <h2 className="text-2xl font-bold mb-6 text-center text-primary">
                     {isResetMode ? 'Reset Password' : 'Login'}
                 </h2>
+
+                {isUnverified && (
+                    <div className="mb-6 p-4 bg-primary/5 border border-primary/10 rounded-2xl text-left">
+                        <p className="text-sm font-bold text-primary mb-1">Email Verification Required</p>
+                        <p className="text-xs text-primary/70 mb-3">
+                            Please verify your email address before logging in. Check your inbox for the verification link.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <Button
+                                type="button"
+                                onClick={handleResendVerification}
+                                isLoading={resendLoading}
+                                className="bg-primary text-secondary text-xs px-4 py-2 rounded-none hover:bg-accent font-bold uppercase tracking-wider"
+                            >
+                                Resend Verification Email
+                            </Button>
+                            <button
+                                type="button"
+                                onClick={() => setIsUnverified(false)}
+                                className="text-xs font-bold text-primary/60 hover:text-primary transition-colors"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
@@ -98,7 +151,10 @@ export default function Login() {
                                 <button
                                     type="button"
                                     className="text-xs font-bold text-primary/60 hover:text-primary transition-colors"
-                                    onClick={() => setIsResetMode(true)}
+                                    onClick={() => {
+                                        setIsResetMode(true);
+                                        setIsUnverified(false);
+                                    }}
                                 >
                                     Forgot password?
                                 </button>
